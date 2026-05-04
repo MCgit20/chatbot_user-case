@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import readline from 'node:readline';
 
-// --- 1. SETUP & CONFIGURATION ---
+// ---  SETUP & CONFIGURATION ---
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout
@@ -30,7 +30,52 @@ const history = [
   { role: 'system', content: 'Tu es un assistant utile et concis.' }
 ];
 
-// --- 2. LOGIQUE DE COMPRESSION (Phase 5) ---
+// ---  COMMANDE DE RÉSUMÉ (Phase 6) ---
+
+async function generateResume() {
+  if (history.length <= 1) {
+    console.log("[Système] Rien à résumer pour le moment.\n");
+    return;
+  }
+
+  console.log('\n--- 📝 Résumé de la conversation (en cours...) ---');
+
+  // On prépare la discussion sous forme de texte
+  const conversationString = history
+    .slice(1)
+    .map(m => `${m.role.toUpperCase()}: ${m.content}`)
+    .join('\n');
+
+  try {
+    const response = await fetch(currentProvider.url, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json', 
+        'Authorization': `Bearer ${currentProvider.key}` 
+      },
+      body: JSON.stringify({
+        model: currentProvider.model,
+        messages: [
+          { 
+            role: 'system', 
+            content: 'Tu es un assistant spécialisé en synthèse. Résume la discussion fournie en 5 points clés maximum. Chaque point doit commencer par un verbe d\'action. Style bullet points uniquement.' 
+          },
+          { role: 'user', content: conversationString }
+        ],
+        temperature: 0.3 // Température basse pour la précision factuelle
+      })
+    });
+
+    const data = await response.json();
+    console.log(data.choices[0].message.content);
+    console.log('--------------------------------------------------\n');
+    // NOTE : On ne push RIEN dans history ici car c'est une commande externe[cite: 1]
+  } catch (error) {
+    console.error('[Erreur Resume]', error.message);
+  }
+}
+
+// ---  LOGIQUE DE COMPRESSION (Phase 5) ---
 async function compressHistory() {
   // On ne compresse que si on dépasse le seuil défini[cite: 1]
   if (history.length <= MAX_HISTORY) return;
@@ -75,7 +120,7 @@ async function compressHistory() {
   }
 }
 
-// --- 3. COMMUNICATION AVEC IA (Phase 3 - Streaming) ---
+// ---  COMMUNICATION AVEC IA (Phase 3 - Streaming) ---
 async function chatStream(userMessage) {
   // Vérification de la compression AVANT l'appel[cite: 1]
   await compressHistory();
@@ -127,15 +172,20 @@ async function chatStream(userMessage) {
   history.push({ role: 'assistant', content: fullContent });
 }
 
-// --- 4. BOUCLE PRINCIPALE (Phase 1 & 4) ---
+// ---  BOUCLE PRINCIPALE (Phase 1 & 4) ---
 async function main() {
-  console.log('--- Chatbot CLI Phase 5 Connecté ---');
-  console.log('Commandes : /provider <mistral|groq>, /history, exit\n');
+  console.log('--- Chatbot CLI Phase 6 Connecté ---');
+  console.log('Commandes : /provider <mistral|groq>, /history, /resume, exit\n');
 
   while (true) {
     const input = await question('Vous : ');
 
     if (input.toLowerCase() === 'exit') break;
+
+    if (input === '/resume') {
+      await generateResume();
+      continue;
+    }
 
     // Gestion de la commande /provider (Phase 4)[cite: 1]
     if (input.startsWith('/provider')) {
