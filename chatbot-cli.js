@@ -30,6 +30,47 @@ const history = [
   { role: 'system', content: 'Tu es un assistant utile et concis.' }
 ];
 
+// ---  COMMANDE DE TRADUCTION (Phase 7) ---
+
+async function translateLast(targetLanguage) {
+  // Trouver le dernier message de l'assistant
+  const lastAssistantMsg = [...history].reverse().find(m => m.role === 'assistant');
+
+  if (!lastAssistantMsg) {
+    console.log("[Système] Aucun message de l'IA à traduire.\n");
+    return;
+  }
+
+  console.log(`\n--- 🌍 Traduction en ${targetLanguage} (en cours...) ---`);
+
+  try {
+    const response = await fetch(currentProvider.url, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json', 
+        'Authorization': `Bearer ${currentProvider.key}` 
+      },
+      body: JSON.stringify({
+        model: currentProvider.model,
+        messages: [
+          { 
+            role: 'system', 
+            content: `Tu es un traducteur professionnel. Traduis le texte fourni en ${targetLanguage}. Retourne uniquement la traduction, sans commentaires, sans introduction.` 
+          },
+          { role: 'user', content: lastAssistantMsg.content }
+        ],
+        temperature: 0.1 // Très bas pour une précision maximale
+      })
+    });
+
+    const data = await response.json();
+    console.log(data.choices[0].message.content);
+    console.log('--------------------------------------------------\n');
+  } catch (error) {
+    console.error('[Erreur Traduction]', error.message);
+  }
+}
+
 // ---  COMMANDE DE RÉSUMÉ (Phase 6) ---
 
 async function generateResume() {
@@ -172,15 +213,21 @@ async function chatStream(userMessage) {
   history.push({ role: 'assistant', content: fullContent });
 }
 
-// ---  BOUCLE PRINCIPALE (Phase 1 & 4) ---
+// ---  BOUCLE PRINCIPALE (Phase 1 & 7) ---
 async function main() {
-  console.log('--- Chatbot CLI Phase 6 Connecté ---');
-  console.log('Commandes : /provider <mistral|groq>, /history, /resume, exit\n');
+  console.log('--- Chatbot CLI Phase 7 Connecté ---');
+  console.log('Commandes : /provider <mistral|groq>, /history, /resume, /translate <lang>, exit\n');
 
   while (true) {
     const input = await question('Vous : ');
 
     if (input.toLowerCase() === 'exit') break;
+
+    if (input.startsWith('/translate ')) {
+      const targetLanguage = input.split(' ')[1];
+      await translateLast(targetLanguage);
+      continue;
+    }
 
     if (input === '/resume') {
       await generateResume();
