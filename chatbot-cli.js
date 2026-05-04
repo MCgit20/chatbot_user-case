@@ -57,8 +57,50 @@ async function chat(userMessage) {
     return reply;
 }
 
+async function chatStream(userMessage) {
+    history.push({ role: 'user', content: userMessage });
+    process.stdout.write('IA : ');
+
+    const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.MISTRAL_API_KEY}`
+        },
+        body: JSON.stringify({
+            model: "mistral-tiny",
+            messages: history,
+            stream: true
+        })
+    });
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let fullReply = "";
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+            if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                const data = JSON.parse(line.slice(6));
+                const content = data.choices[0].delta.content || "";
+                process.stdout.write(content);
+                fullReply += content;
+            }
+        }
+    }
+    process.stdout.write('\n');
+    history.push({ role: 'assistant', content: fullReply });
+    return fullReply;
+}
+
 async function main() {
-    console.log("Chatbot CLI — Phase 2 (Mémoire).");
+    console.log("Chatbot CLI — Phase 3 (Streaming).");
 
     while (true) {
         const query = await rl.question('Vous : ');
