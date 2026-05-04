@@ -34,14 +34,14 @@ const history = [
 async function chat(userMessage) {
   history.push({ role: 'user', content: userMessage });
 
-  const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+  const response = await fetch(currentProvider.url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${process.env.MISTRAL_API_KEY}`
+      'Authorization': `Bearer ${currentProvider.key}`
     },
     body: JSON.stringify({
-      model: 'mistral-small-latest',
+      model: currentProvider.model,
       messages: history,
       temperature: 0.7
     })
@@ -57,14 +57,14 @@ async function chat(userMessage) {
 async function chatStream(userMessage) {
   history.push({ role: 'user', content: userMessage });
 
-  const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+  const response = await fetch(currentProvider.url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${process.env.MISTRAL_API_KEY}`
+      'Authorization': `Bearer ${currentProvider.key}`
     },
     body: JSON.stringify({
-      model: 'mistral-small-latest',
+      model: currentProvider.model,
       messages: history,
       stream: true
     })
@@ -100,15 +100,39 @@ async function chatStream(userMessage) {
   history.push({ role: 'assistant', content: fullContent });
 }
 
+const PROVIDERS = {
+  mistral: {
+    url: 'https://api.mistral.ai/v1/chat/completions',
+    key: process.env.MISTRAL_API_KEY,
+    model: 'mistral-small-latest'
+  },
+  groq: {
+    url: 'https://api.groq.com/openai/v1/chat/completions',
+    key: process.env.GROQ_API_KEY,
+    model: 'llama-3.3-70b-versatile'
+  }
+};
+
+let currentProvider = PROVIDERS.mistral;
+
 async function main() {
-  console.log('--- Chatbot CLI Phase 3 (Streaming) ---');
+  console.log('--- Chatbot CLI Phase 4 (Providers) ---');
   while (true) {
     const input = await question('Vous : ');
     if (input.toLowerCase() === 'exit') break;
     
     const reply = await chatStream(input);
     console.log(`IA : ${reply}\n`);
+    if (input.startsWith('/provider')) {
+  const name = input.split(' ')[1];
+  if (PROVIDERS[name]) {
+    currentProvider = PROVIDERS[name];
+    console.log(`Provider changé pour : ${name}`);
   }
+  continue;
+}
+  }
+  
 }
 
 main();
